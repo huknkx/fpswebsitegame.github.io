@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2D Shooting Game with AI Enemies</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: #000000;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // Game initialization
+        var canvas = document.getElementById("gameCanvas");
+        var context = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Player object
+        var player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 20,
+            color: "#00FF00",
+            speed: 5,
+            bullets: [],
+            health: 100
+        };
+
+        // Enemy object
+        var enemies = [];
+        var enemyCount = 2;
+
+        // Keyboard input handling
+        var keys = {};
+
+        document.addEventListener("keydown", function (event) {
+            keys[event.keyCode] = true;
+        });
+
+        document.addEventListener("keyup", function (event) {
+            keys[event.keyCode] = false;
+        });
+
+        // Mouse input handling
+        canvas.addEventListener("mousedown", function (event) {
+            fireBullet(event.clientX, event.clientY);
+        });
+
+        // Fire bullet function
+        function fireBullet(x, y) {
+            var bullet = {
+                x: player.x,
+                y: player.y,
+                size: 5,
+                color: "#FF0000",
+                speed: 10,
+                dx: x - player.x,
+                dy: y - player.y
+            };
+
+            var magnitude = Math.sqrt(bullet.dx * bullet.dx + bullet.dy * bullet.dy);
+            bullet.dx /= magnitude;
+            bullet.dy /= magnitude;
+
+            player.bullets.push(bullet);
+        }
+
+        // Update function
+        function update() {
+            if (keys[87]) {  // W key
+                player.y -= player.speed;
+            }
+
+            if (keys[83]) {  // S key
+                player.y += player.speed;
+            }
+
+            if (keys[65]) {  // A key
+                player.x -= player.speed;
+            }
+
+            if (keys[68]) {  // D key
+                player.x += player.speed;
+            }
+
+            // Update player bullets
+            for (var i = 0; i < player.bullets.length; i++) {
+                var bullet = player.bullets[i];
+                bullet.x += bullet.dx * bullet.speed;
+                bullet.y += bullet.dy * bullet.speed;
+
+                // Remove bullets that are off-screen
+                if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                    player.bullets.splice(i, 1);
+                    i--;
+                }
+            }
+
+            // Update enemies
+            for (var i = 0; i < enemies.length; i++) {
+                var enemy = enemies[i];
+
+                // Enemy AI: Move towards the player
+                if (player.x < enemy.x) {
+                    enemy.x -= enemy.speed;
+                } else if (player.x > enemy.x) {
+                    enemy.x += enemy.speed;
+                }
+
+                if (player.y < enemy.y) {
+                    enemy.y -= enemy.speed;
+                } else if (player.y > enemy.y) {
+                    enemy.y += enemy.speed;
+                }
+
+                // Enemy AI: Shoot at the player
+                if (Math.random() < 0.01) { // Random chance to shoot
+                    var dx = player.x - enemy.x;
+                    var dy = player.y - enemy.y;
+                    var magnitude = Math.sqrt(dx * dx + dy * dy);
+                    var bulletSpeed = 5;
+
+                    var bullet = {
+                        x: enemy.x,
+                        y: enemy.y,
+                        size: 5,
+                        color: "#FF0000",
+                        speed: bulletSpeed,
+                        dx: dx / magnitude,
+                        dy: dy / magnitude
+                    };
+
+                    enemy.bullets.push(bullet);
+                }
+
+                // Check collision with player
+                if (
+                    player.x < enemy.x + enemy.size &&
+                    player.x + player.size > enemy.x &&
+                    player.y < enemy.y + enemy.size &&
+                    player.y + player.size > enemy.y
+                ) {
+                    // Reduce player health on collision
+                    player.health -= 10;
+
+                    if (player.health <= 0) {
+                        // Game over
+                        alert("Game Over!");
+                        resetGame();
+                    }
+                }
+
+                // Update enemy bullets
+                for (var j = 0; j < enemy.bullets.length; j++) {
+                    var bullet = enemy.bullets[j];
+                    bullet.x += bullet.dx * bullet.speed;
+                    bullet.y += bullet.dy * bullet.speed;
+
+                    // Remove bullets that are off-screen
+                    if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                        enemy.bullets.splice(j, 1);
+                        j--;
+                    }
+                }
+
+                // Check collision with player bullets
+                for (var j = 0; j < player.bullets.length; j++) {
+                    var bullet = player.bullets[j];
+
+                    if (
+                        bullet.x < enemy.x + enemy.size &&
+                        bullet.x + bullet.size > enemy.x &&
+                        bullet.y < enemy.y + enemy.size &&
+                        bullet.y + bullet.size > enemy.y
+                    ) {
+                        // Remove bullet and enemy on collision
+                        player.bullets.splice(j, 1);
+                        j--;
+                        enemies.splice(i, 1);
+                        i--;
+                        break;
+                    }
+                }
+            }
+
+            // Check if all enemies are killed
+            if (enemies.length === 0) {
+                // Spawn twice as many enemies
+                enemyCount *= 2;
+
+                for (var i = 0; i < enemyCount; i++) {
+                    var enemy = {
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: 20,
+                        color: "#FF0000",
+                        speed: 2,
+                        bullets: []
+                    };
+
+                    enemies.push(enemy);
+                }
+            }
+
+            // Clear the canvas
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw the player
+            context.fillStyle = player.color;
+            context.fillRect(player.x - player.size / 2, player.y - player.size / 2, player.size, player.size);
+
+            // Draw the player bullets
+            for (var i = 0; i < player.bullets.length; i++) {
+                var bullet = player.bullets[i];
+                context.fillStyle = bullet.color;
+                context.fillRect(bullet.x - bullet.size / 2, bullet.y - bullet.size / 2, bullet.size, bullet.size);
+            }
+
+            // Draw the enemies
+            for (var i = 0; i < enemies.length; i++) {
+                var enemy = enemies[i];
+                context.fillStyle = enemy.color;
+                context.fillRect(enemy.x - enemy.size / 2, enemy.y - enemy.size / 2, enemy.size, enemy.size);
+
+                // Draw the enemy bullets
+                for (var j = 0; j < enemy.bullets.length; j++) {
+                    var bullet = enemy.bullets[j];
+                    context.fillStyle = bullet.color;
+                    context.fillRect(bullet.x - bullet.size / 2, bullet.y - bullet.size / 2, bullet.size, bullet.size);
+                }
+            }
+
+            // Draw player health
+            context.fillStyle = "#FFFFFF";
+            context.font = "20px Arial";
+            context.fillText("Health: " + player.health, 10, 30);
+        }
+
+        // Reset the game
+        function resetGame() {
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.bullets = [];
+            player.health = 100;
+            enemyCount = 2;
+            enemies = [];
+
+            for (var i = 0; i < enemyCount; i++) {
+                var enemy = {
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: 20,
+                    color: "#FF0000",
+                    speed: 2,
+                    bullets: []
+                };
+
+                enemies.push(enemy);
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>
